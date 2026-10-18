@@ -4,7 +4,7 @@ using ShipIt.PriceQuote.Api.Contracts;
 
 namespace ShipIt.QuotePrice.Api.Controllers;
 [ApiController]
-[Route("[pricequotes]")]
+[Route("pricequotes")]
 public class PriceQuoteController : ControllerBase
 {
     [HttpPost]
