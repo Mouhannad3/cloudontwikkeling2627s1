@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Shipit.Shared;
 
 namespace ShipIt.PriceQuote.Api.Contracts;
 

@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ShipIt.PriceQuote.Api.Contracts\ShipIt.PriceQuote.Api.Contracts.csproj" />
+    <ProjectReference Include="..\ShipIt.PriceQuotes.Storage\ShipIt.PriceQuotes.Storage.csproj" />
+    <ProjectReference Include="..\ShipIt.Storage\ShipIt.Storage.csproj" />
   </ItemGroup>
 
 </Project>

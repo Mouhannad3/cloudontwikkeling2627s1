@@ -3,5 +3,9 @@ az group create --location francecentral --name hogent-mouhannad-gent
 az appservice plan create --name hogent-mouhannad-gentplan  --resource-group hogent-mouhannad-gent --sku F1 --is-linux true
 
 --quote api 
-az webapp create --name hogent-mouhannad-gent-quote --plan hogent-mouhannad-gentplan --resource-group hogent-mouhannad-gent --runtime "DOTNETCORE:10.0"cd 
+az webapp create --name hogent-mouhannad-gent-quote --plan hogent-mouhannad-gentplan --resource-group hogent-mouhannad-gent --runtime "DOTNETCORE:10.0"
+
+dotnet publish -c Release -o publish
+cd publish
+zip -r ./deployme.zip .
 az webapp deploy --name hogent-mouhannad-gent-quote --resource-group hogent-mouhannad-gent --src-path ./deployme.zip --type zip

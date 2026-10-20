@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ShipIt.PriceQuote.Api.Contracts\ShipIt.PriceQuote.Api.Contracts.csproj" />
+    <ProjectReference Include="..\ShipIt.PriceQuote.Domain\ShipIt.PriceQuote.Domain.csproj" />
   </ItemGroup>
 
 </Project>
