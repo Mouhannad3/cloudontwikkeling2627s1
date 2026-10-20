@@ -1,77 +1,76 @@
-using System;
+using Shipit.Shared;
 using ShipIt.PriceQuote.Api.Contracts;
+using ShipIt.PriceQuotes.Storage;
 using static ShipIt.PriceQuote.Domain.ShipItExceptions;
 
-namespace ShipIt.PriceQuote.Domain;
+namespace ShipIt.PriceQuotes.Domain;
 
-public class PriceQuoteService
+
+public interface IPriceQuoteService
 {
-    public interface IPriceQuoteService
+    Task<PriceQuoteResponseContract> CreatePrice(PriceQuoteRequestContract priceToCalc);
+    Task<PriceQuoteResponseContract> GetById(string id);
+}
+
+public class PriceQuoteService(IPriceQuoteRepository repository) : IPriceQuoteService
+{
+    public async Task<PriceQuoteResponseContract> CreatePrice(PriceQuoteRequestContract priceToCalc)
     {
-        Task<PriceQuoteResponseContract> CreatePrice(PriceQuoteRequestContract priceToCalc);
-        Task<PriceQuoteResponseContract> GetById(string id);
+        // Check NL business rule
+        if (priceToCalc.FromCountry == CountryEnum.NL && priceToCalc.WeightKg > 10)
+            throw new FromCountryWeightException($"Package weight may not exceed 10kg for fromCountry NL. Value provided was {priceToCalc.WeightKg}");
+
+        // Calculate Price
+        var calculatedPrice = Calc(priceToCalc);
+        var calculatedValidUntil = DateTime.UtcNow.AddHours(48);
+
+        // Save price via storage
+        var dataModel = new PriceQuoteDataModel
+        {
+            createdOn = DateTime.UtcNow,
+            fromCountry = priceToCalc.FromCountry!.Value,
+            toCountry = priceToCalc.ToCountry!.Value,
+            heightCm = priceToCalc.HeightCm,
+            lengthCm = priceToCalc.LengthCm,
+            widthCm = priceToCalc.WidthCm,
+            weightKg = priceToCalc.WeightKg,
+            validUntil = calculatedValidUntil,
+            price = calculatedPrice
+        };
+
+        var created = await repository.CreateAsync(dataModel);
+
+        // Return created object
+        return new PriceQuoteResponseContract
+        {
+            Id = created.id,
+            Price = created.price,
+            ValidUntil = created.validUntil
+        };
     }
 
-    public class PriceQuoteService(IPriceQuoteRepository repository) : IPriceQuoteService
+    public async Task<PriceQuoteResponseContract> GetById(string id)
     {
-        public async Task<PriceQuoteResponseContract> CreatePrice(PriceQuoteRequestContract priceToCalc)
+        var dbQuote = await repository.GetAsync(id);
+
+        return new PriceQuoteResponseContract
         {
-            // Check NL business rule
-            if (priceToCalc.FromCountry == CountryEnum.NL && priceToCalc.WeightKg > 10)
-                throw new FromCountryWeightException($"Package weight may not exceed 10kg for fromCountry NL. Value provided was {priceToCalc.WeightKg}");
+            Id = dbQuote.id,
+            Price = dbQuote.price,
+            ValidUntil = dbQuote.validUntil
+        };
+    }
 
-            // Calculate Price
-            var calculatedPrice = Calc(priceToCalc);
-            var calculatedValidUntil = DateTime.UtcNow.AddHours(48);
+    private static decimal Calc(PriceQuoteRequestContract priceToCalc)
+    {
+        var volumeCm3 = priceToCalc.HeightCm * priceToCalc.LengthCm * priceToCalc.WidthCm;
 
-            // Save price via storage
-            var dataModel = new PriceQuoteDataModel
-            {
-                createdOn = DateTime.UtcNow,
-                fromCountry = priceToCalc.FromCountry!.Value,
-                toCountry = priceToCalc.ToCountry!.Value,
-                heightCm = priceToCalc.HeightCm,
-                lengthCm = priceToCalc.LengthCm,
-                widthCm = priceToCalc.WidthCm,
-                weightKg = priceToCalc.WeightKg,
-                validUntil = calculatedValidUntil,
-                price = calculatedPrice
-            };
+        var basePrice = 2.5 + volumeCm3 * 0.0001 + priceToCalc.WeightKg * 1.15;
+        var borderSurcharge = priceToCalc.FromCountry == priceToCalc.ToCountry ? 0.0 : 3.0;
 
-            var created = await repository.CreateAsync(dataModel);
+        var totalPrice = (decimal)(basePrice + borderSurcharge);
+        var totalPriceRounded = Math.Round(totalPrice, 1);
 
-            // Return created object
-            return new PriceQuoteResponseContract
-            {
-                Id = created.id,
-                Price = created.price,
-                ValidUntil = created.validUntil
-            };
-        }
-
-        public async Task<PriceQuoteResponseContract> GetById(string id)
-        {
-            var dbQuote = await repository.GetAsync(id);
-
-            return new PriceQuoteResponseContract
-            {
-                Id = dbQuote.id,
-                Price = dbQuote.price,
-                ValidUntil = dbQuote.validUntil
-            };
-        }
-
-        private static decimal Calc(PriceQuoteRequestContract priceToCalc)
-        {
-            var volumeCm3 = priceToCalc.HeightCm * priceToCalc.LengthCm * priceToCalc.WidthCm;
-
-            var basePrice = 2.5 + volumeCm3 * 0.0001 + priceToCalc.WeightKg * 1.15;
-            var borderSurcharge = priceToCalc.FromCountry == priceToCalc.ToCountry ? 0.0 : 3.0;
-
-            var totalPrice = (decimal)(basePrice + borderSurcharge);
-            var totalPriceRounded = Math.Round(totalPrice, 1);
-
-            return totalPriceRounded;
-        }
+        return totalPriceRounded;
     }
 }

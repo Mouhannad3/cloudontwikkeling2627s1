@@ -1,32 +1,52 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
+using Shipit.Shared;
 using ShipIt.PriceQuote.Api.Contracts;
+using ShipIt.PriceQuotes.Domain;
+using static ShipIt.PriceQuote.Domain.ShipItExceptions;
 
 namespace ShipIt.QuotePrice.Api.Controllers;
+
 [ApiController]
 [Route("pricequotes")]
-public class PriceQuoteController : ControllerBase
+public class PriceQuoteController(IPriceQuoteService quoteService) : ControllerBase
 {
     [HttpPost]
-    public ActionResult<PriceQuoteResponseContract> CalculatePriceQuote([FromBody] PriceQuoteRequestContract priceQuoteRequest )
+    public async Task<ActionResult<PriceQuoteResponseContract>> CalculatePrice(
+        [FromBody] PriceQuoteRequestContract requestContract)
     {
-        if (priceQuoteRequest.FromCountry == CountryEnum.NL && priceQuoteRequest.WeightKg > 10)
+        try
         {
-            return Problem(title:"For shipments from the Netherlands, the maximum weight is 10 kg.",statusCode:StatusCodes.Status400BadRequest);
+            var createdQuote = await quoteService.CreatePrice(requestContract);
 
+            return CreatedAtAction(
+                nameof(GetPrice),
+                new { id = createdQuote.Id },
+                createdQuote
+            );
         }
-        var price = 2.5 + priceQuoteRequest.LengthCm * priceQuoteRequest.WidthCm * priceQuoteRequest.HeightCm * 0.0001 + priceQuoteRequest.WeightKg * 1.15;
-        if (priceQuoteRequest.FromCountry != priceQuoteRequest.ToCountry)
-
-            price += 3.0;
-
-        return Ok(new PriceQuoteResponseContract
+        catch (FromCountryWeightException e)
         {
+            return BadRequest(
+                new ProblemDetails
+                {
+                    Title = "OLALALA",
+                    Detail = e.Message
+                }
+            );
+        }
+    }
 
-            CreatedOn = DateTime.UtcNow,
-            ValidUntil = DateTime.UtcNow.AddHours(48),
-            Price = decimal.Round((decimal)price, 1)
+    [HttpGet("{id}")]
+    public async Task<ActionResult<PriceQuoteResponseContract>> GetPrice(
+        [FromRoute] string id)
+    {
+        return Ok(await quoteService.GetById(id));
+    }
 
-        });
+    [HttpGet]
+    public string Hello()
+    {
+        return "Hello World!";
     }
 }
